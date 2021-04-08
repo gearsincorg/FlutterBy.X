@@ -66,11 +66,11 @@ void ADC_Initialize(void)
 {
     // set the ADC to the options selected in the User Interface
     
-    // GOnDONE stop; ADON enabled; CHS ANA0; 
-    ADCON0 = 0x01;
+    // GOnDONE stop; ADON enabled; CHS ANA4; 
+    ADCON0 = 0x11;
     
-    // ADFM left; ADPREF VDD; ADCS FOSC/16; 
-    ADCON1 = 0x50;
+    // ADFM right; ADPREF VDD; ADCS FOSC/16; 
+    ADCON1 = 0xD0;
     
     // ADRESL 0; 
     ADRESL = 0x00;
@@ -149,15 +149,15 @@ void ADC_TemperatureAcquisitionDelay(void)
 #define ACC_TRIGGER_COUNT   200
 #define ACC_WARNING_COUNT   100
 
-#define SAMPLE_COUNT  500        // 25 mSec total  (500 x 50 uS))
-#define WARNING_LEVEL 0x2710UL   // 75 dB @ 2 kHz
-#define TRIGGER_LEVEL 0x4B00UL   // 80 dB @ 2 kHz
+#define SAMPLE_COUNT  400        // 25 mSec total  (400 x 62.5 uS))
+#define WARNING_LEVEL 0x009C     // 0x2710UL   // 75 dB @ 2 kHz
+#define TRIGGER_LEVEL 0x012C     // 0x4B00UL   // 80 dB @ 2 kHz
 #define SAMPLES_PER_INT  10      // 250 mSec samples
 #define SLIDING_WINDOW_INT 40    // 10 Sec total window
 
 uint8_t triggersEachInt[SLIDING_WINDOW_INT];
 uint8_t sampleNumber    = 0;
-uint8_t sampleTriggers  = 0;
+uint16_t sampleTriggers  = 0;
 uint8_t secondIndex     = 0;
 uint16_t totalTriggers  = 0;
 
@@ -168,6 +168,7 @@ uint16_t minLevel   = 0xFFFFUL;
 uint16_t maxLevel   = 0x0000UL;
 
 bool    runTriggers = true;
+uint16_t ramp = 0x00;
 
 void ADC_ISR(void)
 {
@@ -175,6 +176,7 @@ void ADC_ISR(void)
             
     // Clear the ADC interrupt flag
     PIR1bits.ADIF = 0;
+    ADC_StartConversion();
 }
 
 void    resetVolumeLimit()
@@ -224,12 +226,13 @@ void calculateVolume(uint16_t level)
                 totalTriggers += sampleTriggers;     
                 
                 if (totalTriggers > 25 )
-                    setRightLED(totalTriggers);
+                    setRightLED(totalTriggers << 1);
                 else
                     setRightLED(0);
 
-                if (++secondIndex == SLIDING_WINDOW_INT)
+                if (++secondIndex == SLIDING_WINDOW_INT){
                     secondIndex = 0;
+                }
 
                 sampleTriggers = 0;
                 sampleNumber  = 0;

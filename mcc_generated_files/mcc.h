@@ -52,12 +52,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "interrupt_manager.h"
-#include "pwm6.h"
 #include "tmr1.h"
+#include "pwm6.h"
 #include "tmr2.h"
 #include "pwm4.h"
-#include "pwm5.h"
 #include "tmr0.h"
+#include "pwm5.h"
 #include "pwm3.h"
 #include "adc.h"
 

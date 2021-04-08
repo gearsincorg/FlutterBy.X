@@ -66,15 +66,7 @@ void __interrupt() INTERRUPT_InterruptManager (void)
         {
             TMR1_ISR();
         } 
-        else
-        {
-            //Unhandled Interrupt
-        }
     }      
-    else
-    {
-        //Unhandled Interrupt
-    }
 }
 /**
  End of File

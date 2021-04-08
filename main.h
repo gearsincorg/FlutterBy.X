@@ -36,21 +36,25 @@
 // TODO Insert appropriate #include <>
 #define LONG_PRESS 1000 
 #define DEBOUNCE 25
-#define BATTERY_SAVER     600000UL
-#define MUTE_TIMER        300000UL
+#define BATTERY_SAVER     900000UL      // 15 min
+#define MUTE_TIMER        610000UL      // 10 min
 
-#define FULL_PWM          0x3F
-#define HALF_PWM          0x1F
-#define QUAT_PWM          0x0F
+#define FULL_PWM          0x3FF
+#define HALF_PWM          0x1FF
+#define QUAT_PWM          0x0FF
 
 // TODO Insert C++ class definitions if appropriate
 
 //      Interrupt Handlers
 void    motionHandler(void);
-void    buttonHandler(void);
 void    timerMSHandler(void);
 
 //      Function Prototypes
+bool    leftPressed(void);
+bool    rightPressed(void);
+void    click(void);
+
+
 bool    buttonPressed(bool poweringDown);
 void    clearPresses(void); 
 void    delay(uint24_t delayMS);

@@ -44,7 +44,6 @@
 #include "mcc_generated_files/mcc.h"
 #include "main.h"
 
-#define FULL_GREEN  24
 #define PUBLIC_REV  1
 #define PUBLIC_MINOR  1
 
@@ -57,7 +56,9 @@ bool     shortPress = false;
 bool     changePress = false;
 bool     beaconIsRed = false;
 uint8_t  patternIndex = 0;
-uint8_t  brightness = 0;
+uint16_t brightness = 0;
+bool     lastLeftButton = false;
+bool     lastRightButton = false;
 
 /*
                          Main application
@@ -71,6 +72,7 @@ void main(void)
     
     IOCAF2_SetInterruptHandler(motionHandler);
     TMR1_SetInterruptHandler(timerMSHandler);
+    
     // Enable the Global Interrupts
     INTERRUPT_GlobalInterruptEnable();
 
@@ -81,15 +83,21 @@ void main(void)
     LED_R_SetHigh();
     VIB_L_SetHigh();
     VIB_R_SetHigh();
+    setLeftLED(0);
+    setRightLED(0);
     SW_VCC_SetHigh();
+    setVibrate(0);
+
+    TMR0_StartTimer();
     resetVolumeLimit();
     resetTimerMS();
     powerUpTest();
     
+    ADC_StartConversion();
+    
     while (1)
     {
         // Update normal beacon if button not pressed.
-        buttonHandler();
         if (!buttonPressed(true)){
 
             // restart sleep timer
@@ -126,9 +134,6 @@ void main(void)
                     tickle();
                     break;
             }
-            
-            // Update blink display
-            // sineLED();
         }
         delay(50);
     }
@@ -145,30 +150,31 @@ void    tickle()
     uint16_t loud = FULL_PWM;
     
     // Pulse the Motor
+    setRightLED(0);
+    stopTriggers();
+    setLeftLED(loud);
     setVibrate(loud);
-    delay(40);
+    delay(200);
+    setLeftLED(0);
     setVibrate(0);
-    delay(80);
+    delay(100);
     
-    for (int blink=0; blink < 3; blink++) {
+    for (int blink=0; blink < 2; blink++) {
+        setLeftLED(loud);
         setVibrate(loud);
-        delay(20);
+        delay(100);
+        setLeftLED(0);
         setVibrate(0);
         delay(100);
-        loud >>= 2;
     }
-    delay(1000);
+    
+    setLeftLED(0);
     setVibrate(0);
+    delay(500);
     resetVolumeLimit();
+    startTriggers();
 }
 
-/*
-void    pulseLED()
-{
-    setFlag(beaconIsRed, pulse[patternIndex]);
-    patternIndex = (patternIndex + 1) % sizeof(pulse);
-}
-*/
 
 void    delay(uint24_t delayMS)
 {
@@ -196,43 +202,43 @@ void motionHandler(void){
     }
 }
 
-void buttonHandler(void){
+bool leftPressed() {
+    bool press = (FINGER_L_GetValue() == 0);
+    setLeftLED(press ? 0x1FF : 0);
+
     // ignore a bounce or double press
-    if (shortPress || longPress || changePress) 
-        return;
-    
-    if (FINGER_L_GetValue() == 0) {
-        pressTime = getTimerMS();
-        resetSleepMS();  // probably.....
+    if (press && !lastLeftButton) {
+
+        if (!(shortPress || longPress || changePress)) 
+        {
+            pressTime = getTimerMS();
+            resetSleepMS();  // probably.....
+        }
     }
+    lastLeftButton = press;
+
+    return (press);
+}
+
+bool rightPressed() {
+    return (FINGER_R_GetValue() == 0);
 }
 
 // Indicate the duration the button is down for
 bool    buttonPressed( bool poweringDown) {
+    
     // Are we holding the button down right now.
-    if (FINGER_L_GetValue() == 0) {
+    if (leftPressed()) {
         stopTriggers();
         if ((getTimerMS() - pressTime) > LONG_PRESS) {
-            if (poweringDown) {
-                if (brightness > 0)
-                    brightness--;
-                setLeftLED(brightness);
+            if (poweringDown && !longPress) {
+                      click();
             }
-            else {
-                if (brightness < FULL_GREEN)
-                    brightness++;
-                setLeftLED(brightness);
-            }
+  
             longPress  = true;
             shortPress = false;
         }
         else {
-            //if (poweringDown) 
-            brightness = FULL_GREEN ;           
-            //else
-            //    brightness = 0 ;           
-                    
-            //setLED(0,brightness,0);
             shortPress = true;
         }
         return true;
@@ -255,6 +261,13 @@ void    powerUpTest () {
     delay(500);
 }
 
+void    click() {
+    setVibrate(0x3FF);
+    delay(150);
+    setVibrate(0);
+    delay(75);
+}
+
 /*
  * Do everything required to enter super low power (OFF) mode.
  * We are woken up by another long press
@@ -262,57 +275,47 @@ void    powerUpTest () {
 void    powerDown(bool timeout) {
     
     SW_VCC_SetLow();
+    stopTriggers();
 
-    // Fade out the Green LED
+    // Fade out the LED
     if (timeout) {
         for (uint16_t b = QUAT_PWM; b != 0; b-- )
         {
             setLeftLED(b);
-            delay(20);
+            delay(10);
         }
     }
     setLeftLED(0);
+    setRightLED(0);
+    setVibrate(0);
     
-    while (1) {
-        NOP();
-        SLEEP();  // Power down the PIC
-        NOP();
-       
-        //Waking up
-        delay(100);
-        clearPresses();
-        pressTime = getTimerMS();
+    NOP();
+    SLEEP();  // Power down the PIC
+    NOP();
 
-        // We have woken up, so wait for button release.
-        while (buttonPressed(false)) {
-            delay(50);
-        };
-        setLeftLED(0);
-
-        // was this a long press
-        if (longPress) {
-            longPress = false;
-            break;
-        }
-        else {
-            shortPress = false;
-            brightness = 0;
-            while (brightness < QUAT_PWM) {
-                brightness++;
-                setLeftLED(brightness);
-                delay(20);
-            }
-            setLeftLED(0);
-            break;
-        }
-    }
+    //Waking up
+    delay(10);
+    clearPresses();
+    pressTime = getTimerMS();
 
     // Waking up.
     SW_VCC_SetHigh();
+    ADC_StartConversion();
     resetVolumeLimit();
-    delay(250);
+    startTriggers();
+
+    brightness = 0;
+    while (brightness < QUAT_PWM) {
+        brightness++;
+        setLeftLED(brightness);
+        delay(10);
+    }
+    setLeftLED(0);
+
+    resetVolumeLimit();
+    startTriggers();
     resetTimerMS();
-    clearPresses();
+    resetSleepMS();
 }
 
 void    goToSleep(void) {
@@ -321,23 +324,33 @@ void    goToSleep(void) {
     // But wake up with a long press
     stopTriggers();
     SW_VCC_SetLow();
+    setLeftLED(0);
+    setRightLED(0);
+    setVibrate(0);
 
     resetTimerMS();
     while ((getTimerMS() < MUTE_TIMER)) {
-        if ((FINGER_L_GetValue() == 0) && ((getTimerMS() - pressTime) > LONG_PRESS)) 
+        if (leftPressed() && ((getTimerMS() - pressTime) > LONG_PRESS)) {
+            click();
+            click();
             break;
+        }
         delay(20);
     }
     
     // Waking up.
     SW_VCC_SetHigh();
-    for (brightness = 0; brightness < QUAT_PWM; brightness++) {
-        setLeftLED(brightness);
-        delay(20);
+    // Show LED if auto wake
+    if (getTimerMS() >= MUTE_TIMER) {
+        for (brightness = 0; brightness < QUAT_PWM; brightness++) {
+            setLeftLED(brightness);
+            delay(2);
+        }
     }
-    
+    setLeftLED(0);
+            
     // wait for button release
-    while(FINGER_L_GetValue() == 0) {
+    while(leftPressed()) {
         delay(5);
     }
 
@@ -353,14 +366,14 @@ void    flashRev(uint8_t greenLevel) {
     for (int r=0; r < PUBLIC_REV; r++) {
         setRightLED(HALF_PWM);  // Green
         
-        delay(200);
-        setRightLED(0);
         delay(300);
+        setRightLED(0);
+        delay(400);
     }
 
     for (int r=0; r < PUBLIC_MINOR; r++) {
-        setRightLED(QUAT_PWM);   // Blue
-        delay(50);
+        setRightLED(HALF_PWM);   // Blue
+        delay(100);
         setRightLED(0);
         delay(100);
     }

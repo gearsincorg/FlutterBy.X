@@ -344,6 +344,7 @@ void    stopTriggers(void);
 
 // external
 void    setRightLED(uint16_t brightness);
+void    setLeftLED(uint16_t brightness);
 
 
 #ifdef __cplusplus  // Provide C++ Compatibility
