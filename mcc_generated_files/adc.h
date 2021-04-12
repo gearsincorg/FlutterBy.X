@@ -341,6 +341,7 @@ void    resetVolumeLimit(void);
 int     checkVolume(void);
 void    startTriggers(void);
 void    stopTriggers(void);
+void    setModeLevels(uint8_t mode);
 
 // external
 void    setRightLED(uint16_t brightness);

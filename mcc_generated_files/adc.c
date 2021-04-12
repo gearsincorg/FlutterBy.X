@@ -150,10 +150,17 @@ void ADC_TemperatureAcquisitionDelay(void)
 #define ACC_WARNING_COUNT   100
 
 #define SAMPLE_COUNT  400        // 25 mSec total  (400 x 62.5 uS))
-#define WARNING_LEVEL 0x009C     // 0x2710UL   // 75 dB @ 2 kHz
-#define TRIGGER_LEVEL 0x012C     // 0x4B00UL   // 80 dB @ 2 kHz
+//#define WARNING_LEVEL 0x009C     // 0x2710UL   // 75 dB @ 2 kHz
+//#define TRIGGER_LEVEL 0x012C     // 0x4B00UL   // 80 dB @ 2 kHz
 #define SAMPLES_PER_INT  10      // 250 mSec samples
 #define SLIDING_WINDOW_INT 40    // 10 Sec total window
+
+#define NUM_MODES         5U      // also in main.h
+
+uint16_t triggerLevels[NUM_MODES + 2] = {35, 70, 156, 300, 720, 1400, 2800};
+
+uint16_t warningLevel = 0;
+uint16_t triggerLevel = 0;
 
 uint8_t triggersEachInt[SLIDING_WINDOW_INT];
 uint8_t sampleNumber    = 0;
@@ -213,9 +220,9 @@ void calculateVolume(uint16_t level)
             volume = (uint16_t)(maxLevel - minLevel);
 
             // bump the triggers for this second if the sample is above the trigger leveL>
-            if (volume > TRIGGER_LEVEL)
+            if (volume > triggerLevel)
                 sampleTriggers += 2;
-            else if (volume > WARNING_LEVEL)
+            else if (volume > warningLevel)
                 sampleTriggers += 1;
 
             // Bump the sample and check if the second is finished)
@@ -253,6 +260,11 @@ int    checkVolume()
         return 1;
     else
         return (0);
+}
+
+void    setModeLevels(uint8_t mode) {
+    warningLevel = triggerLevels[mode];
+    triggerLevel = triggerLevels[mode + 2U];
 }
 
 /**

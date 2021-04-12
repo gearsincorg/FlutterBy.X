@@ -51,6 +51,7 @@
 uint24_t timerMS = 0;
 uint24_t sleepMS = 0;
 uint24_t pressTime = 0;
+uint24_t modeTime  = 0;
 bool     longPress = false;
 bool     shortPress = false;
 bool     changePress = false;
@@ -60,12 +61,22 @@ uint16_t brightness = 0;
 bool     lastLeftButton = false;
 bool     lastRightButton = false;
 
+uint8_t  currentMode = 2;
+uint8_t  modeState   = 0;
+uint8_t  modeCount   = 0;
+
+uint16_t blinkCounter = 0;
+
+uint16_t currentLeftLED = 0;
+uint16_t currentRightLED = 0;
+
 /*
                          Main application
  */
 void main(void)
 {
     uint8_t volume;
+    uint16_t saved;
     
     // initialize the device
     SYSTEM_Initialize();
@@ -94,48 +105,79 @@ void main(void)
     powerUpTest();
     
     ADC_StartConversion();
+    setModeLevels(currentMode);
     
     while (1)
     {
-        // Update normal beacon if button not pressed.
-        if (!buttonPressed(true)){
-
-            // restart sleep timer
-            if (shortPress) {
-                resetTimerMS();
-                clearPresses();
-            }
-
-            // Power Down
+        if (rightPressed()) {
+            stopTriggers();
+            flashMode();
+            buttonPressed(true);
+            
             if (longPress) {
+                currentMode++ ;
+                if (currentMode >= NUM_MODES)
+                    currentMode = 0;
+                
+                setModeLevels(currentMode);
                 resetVolumeLimit();
-                clearPresses();
-                goToSleep();
+                
+                delay (100);
                 resetTimerMS();
                 clearPresses();
-            }
-
-            // Battery Saver?
-            if (sleepMS > BATTERY_SAVER){
-                powerDown(true);
-                resetSleepMS();
             }
                 
-            // Time to vibrate?
-            switch (checkVolume()) {
-                case 0:
-                default:
-                    break;
-                    
-                case 1:
-                    break;
-                    
-                case 2:
-                    tickle();
-                    break;
+        } else  {
+            startTriggers();
+            if (!buttonPressed(true)){
+
+                // restart sleep timer
+                if (shortPress) {
+                    resetTimerMS();
+                    clearPresses();
+                }
+
+                // Power Down
+                if (longPress) {
+                    resetVolumeLimit();
+                    clearPresses();
+                    goToSleep();
+                    resetTimerMS();
+                    clearPresses();
+                }
+
+                // Battery Saver?
+                if (sleepMS > BATTERY_SAVER){
+                    powerDown(true);
+                    resetSleepMS();
+                }
+
+                // Time to vibrate?
+                switch (checkVolume()) {
+                    case 0:
+                    default:
+                        break;
+
+                    case 1:
+                        break;
+
+                    case 2:
+                        tickle();
+                        break;
+                }
+            }
+
+            // Check for a blink every 10 seconds
+            if (blinkCounter++ > 200) {
+                saved = currentRightLED;
+                setRightLED(0x10);
+                delay(50);
+                setRightLED(saved);
+                blinkCounter = 0;
+            } else {
+                delay(50);
             }
         }
-        delay(50);
     }
 
     // Disable the Global Interrupts
@@ -171,6 +213,7 @@ void    tickle()
     setLeftLED(0);
     setVibrate(0);
     delay(500);
+    setModeLevels(currentMode);
     resetVolumeLimit();
     startTriggers();
 }
@@ -189,10 +232,12 @@ void    setVibrate(uint16_t intensity){
 }
 
 void    setLeftLED(uint16_t brightness){
+    currentLeftLED = brightness;
     PWM6_LoadDutyValue(brightness);
 }
 
 void    setRightLED(uint16_t brightness){
+    currentRightLED = brightness;
     PWM5_LoadDutyValue(brightness);
 }
 
@@ -230,7 +275,7 @@ bool    buttonPressed( bool poweringDown) {
     // Are we holding the button down right now.
     if (leftPressed()) {
         stopTriggers();
-        if ((getTimerMS() - pressTime) > LONG_PRESS) {
+        if (getTimerMS() > (pressTime + LONG_PRESS)) {
             if (poweringDown && !longPress) {
                       click();
             }
@@ -253,11 +298,12 @@ void    clearPresses() {
     shortPress  = false;
     longPress   = false;
     changePress = false;
+    blinkCounter = 0;
 }
 
 void    powerUpTest () {
     delay(200);
-    flashRev(0);
+    flashRev();
     delay(500);
 }
 
@@ -360,7 +406,7 @@ void    goToSleep(void) {
 }
 
 
-void    flashRev(uint8_t greenLevel) {
+void    flashRev() {
     
     // Blink the Rev number
     for (int r=0; r < PUBLIC_REV; r++) {
@@ -379,6 +425,37 @@ void    flashRev(uint8_t greenLevel) {
     }
 }
 
+void    flashMode() {
+    
+    // Blink the Mode number
+    switch (modeState) {
+        case 0:  // number is off
+            if (timerMS > modeTime) {
+                setRightLED(HALF_PWM);
+                modeTime = timerMS + 200;
+                modeState = 1;
+            }
+            break;
+            
+        case 1:  // number is on
+            if (timerMS > modeTime) {
+                setRightLED(0);
+                modeCount++;
+                        
+                if (modeCount <= currentMode) {
+                    modeTime = timerMS + 300;
+                }
+                else {
+                    modeTime = timerMS + 1000;
+                    modeCount = 0;
+                }
+                modeState = 0;
+            }
+            break;
+    }
+    delay(5);
+}
+
 // TIMER CODE
 void timerMSHandler(void)
 {
@@ -393,11 +470,14 @@ uint24_t getTimerMS()
 
 void resetTimerMS()
 {
-    timerMS = 10000UL;  // Must be longer than Long press
+    blinkCounter = 0;
+    timerMS  =  2000UL;  // Must be longer than Long press
+    modeTime = timerMS;
 }
 
 void resetSleepMS()
 {
+    blinkCounter = 0;
     sleepMS = 0UL;   
 }
 

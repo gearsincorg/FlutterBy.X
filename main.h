@@ -39,6 +39,8 @@
 #define BATTERY_SAVER     900000UL      // 15 min
 #define MUTE_TIMER        610000UL      // 10 min
 
+#define NUM_MODES         5             // Also in adc.c
+
 #define FULL_PWM          0x3FF
 #define HALF_PWM          0x1FF
 #define QUAT_PWM          0x0FF
@@ -59,7 +61,8 @@ bool    buttonPressed(bool poweringDown);
 void    clearPresses(void); 
 void    delay(uint24_t delayMS);
 void    tickle(void) ;
-void    flashRev(uint8_t greenLevel);
+void    flashRev(void);
+void    flashMode(void);
 void    powerDown(bool timeout);
 void    powerUpTest (void) ;
 void    goToSleep(void);
