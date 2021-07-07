@@ -155,9 +155,9 @@ void ADC_TemperatureAcquisitionDelay(void)
 #define SAMPLES_PER_INT  10      // 250 mSec samples
 #define SLIDING_WINDOW_INT 40    // 10 Sec total window
 
-#define NUM_MODES         5U      // also in main.h
+#define NUM_MODES         7U      // also in main.h
 
-uint16_t triggerLevels[NUM_MODES + 2] = {35, 70, 156, 300, 720, 1400, 2800};
+uint16_t triggerLevels[NUM_MODES + 1] = {18, 35, 70, 156, 300, 720, 1400, 2800};
 
 uint16_t warningLevel = 0;
 uint16_t triggerLevel = 0;
@@ -264,7 +264,7 @@ int    checkVolume()
 
 void    setModeLevels(uint8_t mode) {
     warningLevel = triggerLevels[mode];
-    triggerLevel = triggerLevels[mode + 2U];
+    triggerLevel = triggerLevels[mode + 1U];
 }
 
 /**

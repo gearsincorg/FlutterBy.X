@@ -39,7 +39,7 @@
 #define BATTERY_SAVER     900000UL      // 15 min
 #define MUTE_TIMER        610000UL      // 10 min
 
-#define NUM_MODES         5             // Also in adc.c
+#define NUM_MODES         7             // Also in adc.c
 
 #define FULL_PWM          0x3FF
 #define HALF_PWM          0x1FF

@@ -61,7 +61,7 @@ uint16_t brightness = 0;
 bool     lastLeftButton = false;
 bool     lastRightButton = false;
 
-uint8_t  currentMode = 2;
+uint8_t  currentMode = 3;
 uint8_t  modeState   = 0;
 uint8_t  modeCount   = 0;
 
