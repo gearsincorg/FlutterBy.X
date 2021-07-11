@@ -344,8 +344,8 @@ void    stopTriggers(void);
 void    setModeLevels(uint8_t mode);
 
 // external
-void    setRightLED(uint16_t brightness);
-void    setLeftLED(uint16_t brightness);
+void    setGreenLED(uint16_t brightness);
+void    setOrangeLED(uint16_t brightness);
 
 
 #ifdef __cplusplus  // Provide C++ Compatibility

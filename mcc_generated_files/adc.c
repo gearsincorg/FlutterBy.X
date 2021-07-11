@@ -233,9 +233,9 @@ void calculateVolume(uint16_t level)
                 totalTriggers += sampleTriggers;     
                 
                 if (totalTriggers > 25 )
-                    setRightLED(totalTriggers << 1);
+                    setGreenLED(totalTriggers << 1);
                 else
-                    setRightLED(0);
+                    setGreenLED(0);
 
                 if (++secondIndex == SLIDING_WINDOW_INT){
                     secondIndex = 0;

@@ -55,9 +55,8 @@ void SYSTEM_Initialize(void)
     PWM6_Initialize();
     ADC_Initialize();
     PWM4_Initialize();
-    PWM3_Initialize();
-    TMR2_Initialize();
     PWM5_Initialize();
+    TMR2_Initialize();
     TMR1_Initialize();
     TMR0_Initialize();
 }

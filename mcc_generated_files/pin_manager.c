@@ -60,7 +60,7 @@ void PIN_MANAGER_Initialize(void)
     LATx registers
     */
     LATA = 0x03;
-    LATC = 0x0F;
+    LATC = 0x0E;
 
     /**
     TRISx registers
@@ -78,7 +78,7 @@ void PIN_MANAGER_Initialize(void)
     WPUx registers
     */
     WPUA = 0x0C;
-    WPUC = 0x00;
+    WPUC = 0x30;
 
     /**
     ODx registers
@@ -118,7 +118,6 @@ void PIN_MANAGER_Initialize(void)
     PIE0bits.IOCIE = 1; 
     
 	
-    RC0PPS = 0x0B;   //RC0->PWM3:PWM3OUT;    
     RC3PPS = 0x0E;   //RC3->PWM6:PWM6OUT;    
     RC1PPS = 0x0C;   //RC1->PWM4:PWM4OUT;    
     RC2PPS = 0x0D;   //RC2->PWM5:PWM5OUT;    

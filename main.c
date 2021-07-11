@@ -1,56 +1,29 @@
 /**
-  Generated Main Source File
-
-  Company:
-    Microchip Technology Inc.
-
-  File Name:
-    main.c
-
-  Summary:
-    This is the main file generated using PIC10 / PIC12 / PIC16 / PIC18 MCUs
-
-  Description:
-    This header file provides implementations for driver APIs for all modules selected in the GUI.
-    Generation Information :
-        Product Revision  :  PIC10 / PIC12 / PIC16 / PIC18 MCUs - 1.77
-        Device            :  PIC16LF15324
-        Driver Version    :  2.00
-*/
-
-/*
-    (c) 2018 Microchip Technology Inc. and its subsidiaries. 
-    
-    Subject to your compliance with these terms, you may use Microchip software and any 
-    derivatives exclusively with Microchip products. It is your responsibility to comply with third party 
-    license terms applicable to your use of third party software (including open source software) that 
-    may accompany Microchip software.
-    
-    THIS SOFTWARE IS SUPPLIED BY MICROCHIP "AS IS". NO WARRANTIES, WHETHER 
-    EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS SOFTWARE, INCLUDING ANY 
-    IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY, AND FITNESS 
-    FOR A PARTICULAR PURPOSE.
-    
-    IN NO EVENT WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE, 
-    INCIDENTAL OR CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY KIND 
-    WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER CAUSED, EVEN IF MICROCHIP 
-    HAS BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE FORESEEABLE. TO 
-    THE FULLEST EXTENT ALLOWED BY LAW, MICROCHIP'S TOTAL LIABILITY ON ALL 
-    CLAIMS IN ANY WAY RELATED TO THIS SOFTWARE WILL NOT EXCEED THE AMOUNT 
-    OF FEES, IF ANY, THAT YOU HAVE PAID DIRECTLY TO MICROCHIP FOR THIS 
-    SOFTWARE.
+ * Generated Main Source File
+ *
+ * Company:
+ *   Microchip Technology Inc.
+ *
+ * File Name:
+ *   main.c
+ * 
+ * Version  Date        Comment 
+ * 1.0      6/1/2021    Original release to First Client Jocelynn
+ * 2.0      7/10/2021   Updated for Rev 2.0 Hardware: Super Cap testing
+ * 
+ * Summary:
 */
 
 #include "mcc_generated_files/mcc.h"
 #include "main.h"
 
-#define PUBLIC_REV  1
+#define PUBLIC_REV  2
 #define PUBLIC_MINOR  1
 
 // User Code
 uint24_t timerMS = 0;
 uint24_t sleepMS = 0;
-uint24_t pressTime = 0;
+uint24_t edgeTime = 0;
 uint24_t modeTime  = 0;
 bool     longPress = false;
 bool     shortPress = false;
@@ -90,13 +63,14 @@ void main(void)
     // Enable the Peripheral Interrupts
     INTERRUPT_PeripheralInterruptEnable();
     
-    LED_L_SetHigh();
-    LED_R_SetHigh();
-    VIB_L_SetHigh();
-    VIB_R_SetHigh();
-    setLeftLED(0);
-    setRightLED(0);
+    LED_GREEN_SetHigh();
+    LED_ORANGE_SetHigh();
+    VIBRATE_SetHigh();
+    CHARGE_SetHigh();
     SW_VCC_SetHigh();
+
+    setOrangeLED(0);
+    setGreenLED(0);
     setVibrate(0);
 
     TMR0_StartTimer();
@@ -112,9 +86,7 @@ void main(void)
         if (rightPressed()) {
             stopTriggers();
             flashMode();
-            buttonPressed(true);
-            
-            if (longPress) {
+            if (!buttonPressed(false) && shortPress) {+
                 currentMode++ ;
                 if (currentMode >= NUM_MODES)
                     currentMode = 0;
@@ -131,7 +103,7 @@ void main(void)
             startTriggers();
             if (!buttonPressed(true)){
 
-                // restart sleep timer
+                // clear out, and ignore short presses
                 if (shortPress) {
                     resetTimerMS();
                     clearPresses();
@@ -170,9 +142,9 @@ void main(void)
             // Check for a blink every 10 seconds
             if (blinkCounter++ > 200) {
                 saved = currentRightLED;
-                setRightLED(0x10);
+                setGreenLED(0x10);
                 delay(50);
-                setRightLED(saved);
+                setGreenLED(saved);
                 blinkCounter = 0;
             } else {
                 delay(50);
@@ -192,25 +164,25 @@ void    tickle()
     uint16_t loud = FULL_PWM;
     
     // Pulse the Motor
-    setRightLED(0);
+    setGreenLED(0);
     stopTriggers();
-    setLeftLED(loud);
+    setOrangeLED(loud);
     setVibrate(loud);
     delay(200);
-    setLeftLED(0);
+    setOrangeLED(0);
     setVibrate(0);
     delay(100);
     
     for (int blink=0; blink < 2; blink++) {
-        setLeftLED(loud);
+        setOrangeLED(loud);
         setVibrate(loud);
         delay(100);
-        setLeftLED(0);
+        setOrangeLED(0);
         setVibrate(0);
         delay(100);
     }
     
-    setLeftLED(0);
+    setOrangeLED(0);
     setVibrate(0);
     delay(500);
     setModeLevels(currentMode);
@@ -227,16 +199,15 @@ void    delay(uint24_t delayMS)
 }
 
 void    setVibrate(uint16_t intensity){
-    PWM3_LoadDutyValue(intensity);
     PWM4_LoadDutyValue(intensity);
 }
 
-void    setLeftLED(uint16_t brightness){
+void    setOrangeLED(uint16_t brightness){
     currentLeftLED = brightness;
     PWM6_LoadDutyValue(brightness);
 }
 
-void    setRightLED(uint16_t brightness){
+void    setGreenLED(uint16_t brightness){
     currentRightLED = brightness;
     PWM5_LoadDutyValue(brightness);
 }
@@ -248,21 +219,16 @@ void motionHandler(void){
 }
 
 bool leftPressed() {
-    bool press = (FINGER_L_GetValue() == 0);
-    setLeftLED(press ? 0x1FF : 0);
 
-    // ignore a bounce or double press
-    if (press && !lastLeftButton) {
-
-        if (!(shortPress || longPress || changePress)) 
-        {
-            pressTime = getTimerMS();
-            resetSleepMS();  // probably.....
+    bool leftButton = (FINGER_L_GetValue() == 0);
+    
+    if (getTimerMS() > (edgeTime + DEBOUNCE)) {
+        if (leftButton != lastLeftButton) {
+            lastLeftButton = leftButton;
+            edgeTime = getTimerMS() ;
         }
     }
-    lastLeftButton = press;
-
-    return (press);
+    return (lastLeftButton);
 }
 
 bool rightPressed() {
@@ -275,20 +241,21 @@ bool    buttonPressed( bool poweringDown) {
     // Are we holding the button down right now.
     if (leftPressed()) {
         stopTriggers();
-        if (getTimerMS() > (pressTime + LONG_PRESS)) {
+        if (getTimerMS() < (edgeTime + LONG_PRESS)) {
+            setOrangeLED(0x0FF);
+            shortPress = true;
+        } else {
+            setOrangeLED(0x1FF);
             if (poweringDown && !longPress) {
                       click();
             }
-  
-            longPress  = true;
             shortPress = false;
-        }
-        else {
-            shortPress = true;
+            longPress  = true;
         }
         return true;
     }
     else {
+        setOrangeLED(0x0);
         startTriggers(); 
         return false;
     }
@@ -327,12 +294,12 @@ void    powerDown(bool timeout) {
     if (timeout) {
         for (uint16_t b = QUAT_PWM; b != 0; b-- )
         {
-            setLeftLED(b);
+            setOrangeLED(b);
             delay(10);
         }
     }
-    setLeftLED(0);
-    setRightLED(0);
+    setOrangeLED(0);
+    setGreenLED(0);
     setVibrate(0);
     
     NOP();
@@ -342,7 +309,7 @@ void    powerDown(bool timeout) {
     //Waking up
     delay(10);
     clearPresses();
-    pressTime = getTimerMS();
+    edgeTime = getTimerMS();
 
     // Waking up.
     SW_VCC_SetHigh();
@@ -353,10 +320,10 @@ void    powerDown(bool timeout) {
     brightness = 0;
     while (brightness < QUAT_PWM) {
         brightness++;
-        setLeftLED(brightness);
+        setOrangeLED(brightness);
         delay(10);
     }
-    setLeftLED(0);
+    setOrangeLED(0);
 
     resetVolumeLimit();
     startTriggers();
@@ -370,13 +337,13 @@ void    goToSleep(void) {
     // But wake up with a long press
     stopTriggers();
     SW_VCC_SetLow();
-    setLeftLED(0);
-    setRightLED(0);
+    setOrangeLED(0);
+    setGreenLED(0);
     setVibrate(0);
 
     resetTimerMS();
     while ((getTimerMS() < MUTE_TIMER)) {
-        if (leftPressed() && ((getTimerMS() - pressTime) > LONG_PRESS)) {
+        if (!buttonPressed(false) && longPress) {
             click();
             click();
             break;
@@ -389,18 +356,18 @@ void    goToSleep(void) {
     // Show LED if auto wake
     if (getTimerMS() >= MUTE_TIMER) {
         for (brightness = 0; brightness < QUAT_PWM; brightness++) {
-            setLeftLED(brightness);
+            setOrangeLED(brightness);
             delay(2);
         }
     }
-    setLeftLED(0);
+    setOrangeLED(0);
             
     // wait for button release
     while(leftPressed()) {
         delay(5);
     }
 
-    setLeftLED(0);
+    setOrangeLED(0);
     startTriggers();
     resetVolumeLimit();
 }
@@ -410,17 +377,17 @@ void    flashRev() {
     
     // Blink the Rev number
     for (int r=0; r < PUBLIC_REV; r++) {
-        setRightLED(HALF_PWM);  // Green
+        setGreenLED(HALF_PWM);  // Green
         
         delay(300);
-        setRightLED(0);
+        setGreenLED(0);
         delay(400);
     }
 
     for (int r=0; r < PUBLIC_MINOR; r++) {
-        setRightLED(HALF_PWM);   // Blue
+        setGreenLED(HALF_PWM);   // Blue
         delay(100);
-        setRightLED(0);
+        setGreenLED(0);
         delay(100);
     }
 }
@@ -431,7 +398,7 @@ void    flashMode() {
     switch (modeState) {
         case 0:  // number is off
             if (timerMS > modeTime) {
-                setRightLED(HALF_PWM);
+                setGreenLED(HALF_PWM);
                 modeTime = timerMS + 200;
                 modeState = 1;
             }
@@ -439,7 +406,7 @@ void    flashMode() {
             
         case 1:  // number is on
             if (timerMS > modeTime) {
-                setRightLED(0);
+                setGreenLED(0);
                 modeCount++;
                         
                 if (modeCount <= currentMode) {
@@ -473,6 +440,7 @@ void resetTimerMS()
     blinkCounter = 0;
     timerMS  =  2000UL;  // Must be longer than Long press
     modeTime = timerMS;
+    edgeTime = timerMS ;
 }
 
 void resetSleepMS()

@@ -35,7 +35,7 @@
 
 // TODO Insert appropriate #include <>
 #define LONG_PRESS 1000 
-#define DEBOUNCE 25
+#define DEBOUNCE 50
 #define BATTERY_SAVER     900000UL      // 15 min
 #define MUTE_TIMER        610000UL      // 10 min
 
@@ -67,8 +67,8 @@ void    powerDown(bool timeout);
 void    powerUpTest (void) ;
 void    goToSleep(void);
 void    setVibrate(uint16_t intensity);
-void    setLeftLED(uint16_t brightness);
-void    setRightLED(uint16_t brightness);
+void    setOrangeLED(uint16_t brightness);
+void    setGreenLED(uint16_t brightness);
 
 uint24_t getTimerMS(void);
 void     resetTimerMS(void);
