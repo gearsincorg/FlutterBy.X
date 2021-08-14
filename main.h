@@ -38,12 +38,13 @@
 #define DEBOUNCE 50
 #define BATTERY_SAVER     900000UL      // 15 min
 #define MUTE_TIMER        610000UL      // 10 min
+#define TICKLE_HOLDOFF_MS 60000UL       // 1 min         
 
 #define NUM_MODES         7             // Also in adc.c
 
 #define FULL_PWM          0x3FF
-#define HALF_PWM          0x1FF
-#define QUAT_PWM          0x0FF
+#define HALF_PWM          0x0FF
+#define QUAT_PWM          0x07F
 
 // TODO Insert C++ class definitions if appropriate
 

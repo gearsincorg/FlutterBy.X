@@ -338,7 +338,7 @@ void ADC_ISR(void);
 void    calculateVolume(uint16_t);
 uint8_t getVolume(void); 
 void    resetVolumeLimit(void);
-int     checkVolume(void);
+bool    triggerNow(void);
 void    startTriggers(void);
 void    stopTriggers(void);
 void    setModeLevels(uint8_t mode);

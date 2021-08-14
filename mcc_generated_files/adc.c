@@ -145,17 +145,17 @@ void ADC_TemperatureAcquisitionDelay(void)
 // Keep count of number of trigger samples per window.
 
 #include "string.h"
+#include "..\main.h"
 
-#define ACC_TRIGGER_COUNT   200
-#define ACC_WARNING_COUNT   100
+#define GREEN_TRIGGER_COUNT    25
+#define ORANGE_TRIGGER_COUNT   100
+#define VIBRATE_TRIGGER_COUNT  180
 
 #define SAMPLE_COUNT  400        // 25 mSec total  (400 x 62.5 uS))
-//#define WARNING_LEVEL 0x009C     // 0x2710UL   // 75 dB @ 2 kHz
-//#define TRIGGER_LEVEL 0x012C     // 0x4B00UL   // 80 dB @ 2 kHz
-#define SAMPLES_PER_INT  10      // 250 mSec samples
-#define SLIDING_WINDOW_INT 40    // 10 Sec total window
+#define SAMPLES_PER_INT  10      // 250 mSec Intervals
+#define SLIDING_WINDOW_INT 20    // 5 Sec Sliding Window
 
-#define NUM_MODES         7U      // also in main.h
+#define NUM_MODES         7      // also in main.h
 
 uint16_t triggerLevels[NUM_MODES + 1] = {18, 35, 70, 156, 300, 720, 1400, 2800};
 
@@ -208,6 +208,7 @@ void    stopTriggers() {
 
 void calculateVolume(uint16_t level) 
 {
+    
     if (runTriggers) {
 
         if (level > maxLevel)
@@ -215,28 +216,36 @@ void calculateVolume(uint16_t level)
         if (level < minLevel)
             minLevel = level;
 
-        // is it time to process this sample (each 50 mSec)
+        // is it time to process this sample to get peak volume
         if (samples++ >= SAMPLE_COUNT) {
-            volume = (uint16_t)(maxLevel - minLevel);
+            volume = (maxLevel - minLevel);
 
-            // bump the triggers for this second if the sample is above the trigger leveL>
-            if (volume > triggerLevel)
+            // bump the triggers for this interval if the peak volume is above the trigger or warning leveL>
+            if (volume > triggerLevel){
                 sampleTriggers += 2;
-            else if (volume > warningLevel)
+            } else if (volume > warningLevel) {
                 sampleTriggers += 1;
+            }
 
-            // Bump the sample and check if the second is finished)
+            // Bump the sample and check if the Interval is finished)
             if (++sampleNumber >= SAMPLES_PER_INT) {
-                // subtract the oldest second and add the new one.
+                // subtract the oldest interval and add the new one.
                 totalTriggers -= triggersEachInt[secondIndex];
                 triggersEachInt[secondIndex] = sampleTriggers;
                 totalTriggers += sampleTriggers;     
-                
-                if (totalTriggers > 25 )
-                    setGreenLED(totalTriggers << 1);
-                else
+             
+                // Update LEDs
+                if (totalTriggers > ORANGE_TRIGGER_COUNT) {
+                    setOrangeLED(HALF_PWM);
                     setGreenLED(0);
-
+                } else if (totalTriggers > GREEN_TRIGGER_COUNT) {
+                    setGreenLED(QUAT_PWM);
+                    setOrangeLED(0);
+                } else {
+                    setGreenLED(0);
+                    setOrangeLED(0);
+                }
+                
                 if (++secondIndex == SLIDING_WINDOW_INT){
                     secondIndex = 0;
                 }
@@ -252,14 +261,9 @@ void calculateVolume(uint16_t level)
     }
 }
 
-int    checkVolume()
+bool    triggerNow()
 {
-    if (totalTriggers > ACC_TRIGGER_COUNT)
-        return 2;
-    else if (totalTriggers > ACC_WARNING_COUNT)
-        return 1;
-    else
-        return (0);
+    return (totalTriggers > VIBRATE_TRIGGER_COUNT);
 }
 
 void    setModeLevels(uint8_t mode) {

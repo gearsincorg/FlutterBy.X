@@ -10,6 +10,7 @@
  * Version  Date        Comment 
  * 1.0      6/1/2021    Original release to First Client Jocelynn
  * 2.0      7/10/2021   Updated for Rev 2.0 Hardware: Super Cap testing
+ * 2.3      8/14/2021   Added new tickle, LED indication and Tickle hold-off
  * 
  * Summary:
 */
@@ -18,7 +19,7 @@
 #include "main.h"
 
 #define PUBLIC_REV  2
-#define PUBLIC_MINOR  1
+#define PUBLIC_MINOR  2
 
 // User Code
 uint24_t timerMS = 0;
@@ -42,6 +43,8 @@ uint16_t blinkCounter = 0;
 
 uint16_t currentLeftLED = 0;
 uint16_t currentRightLED = 0;
+
+uint24_t tickleHoldoff    = 0;   
 
 /*
                          Main application
@@ -125,17 +128,15 @@ void main(void)
                 }
 
                 // Time to vibrate?
-                switch (checkVolume()) {
-                    case 0:
-                    default:
-                        break;
-
-                    case 1:
-                        break;
-
-                    case 2:
+                if (triggerNow()) {
+                    if (getTimerMS() > tickleHoldoff){
                         tickle();
-                        break;
+                    } else {
+                        // We are in holdoff
+                        setOrangeLED(FULL_PWM);
+                        delay(200);
+                        setOrangeLED(0);
+                    }
                 }
             }
 
@@ -161,32 +162,36 @@ void main(void)
 
 void    tickle() 
 {
-    uint16_t loud = FULL_PWM;
-    
     // Pulse the Motor
     setGreenLED(0);
-    stopTriggers();
-    setOrangeLED(loud);
-    setVibrate(loud);
+
+    // custom Vibrate
+    setOrangeLED(FULL_PWM);
+    setVibrate(FULL_PWM);
+    delay(250);
+    setOrangeLED(0);
+    setVibrate(0);
+    delay(300);
+
+    setOrangeLED(FULL_PWM);
+    setVibrate(FULL_PWM);
+    delay(150);
+    setOrangeLED(0);
+    setVibrate(0);
     delay(200);
+
+    setOrangeLED(FULL_PWM);
+    setVibrate(FULL_PWM);
+    delay(250);
     setOrangeLED(0);
     setVibrate(0);
-    delay(100);
-    
-    for (int blink=0; blink < 2; blink++) {
-        setOrangeLED(loud);
-        setVibrate(loud);
-        delay(100);
-        setOrangeLED(0);
-        setVibrate(0);
-        delay(100);
-    }
-    
-    setOrangeLED(0);
-    setVibrate(0);
-    delay(500);
+   
+    delay(1000);
     setModeLevels(currentMode);
     resetVolumeLimit();
+    
+    tickleHoldoff = getTimerMS() + TICKLE_HOLDOFF_MS ;
+            
     startTriggers();
 }
 
@@ -194,7 +199,6 @@ void    tickle()
 void    delay(uint24_t delayMS)
 {
     uint24_t stop = getTimerMS() + delayMS;
-    
     while (getTimerMS() < stop) ;
 }
 
@@ -242,10 +246,8 @@ bool    buttonPressed( bool poweringDown) {
     if (leftPressed()) {
         stopTriggers();
         if (getTimerMS() < (edgeTime + LONG_PRESS)) {
-            setOrangeLED(0x0FF);
             shortPress = true;
         } else {
-            setOrangeLED(0x1FF);
             if (poweringDown && !longPress) {
                       click();
             }
@@ -255,7 +257,6 @@ bool    buttonPressed( bool poweringDown) {
         return true;
     }
     else {
-        setOrangeLED(0x0);
         startTriggers(); 
         return false;
     }
@@ -276,9 +277,9 @@ void    powerUpTest () {
 
 void    click() {
     setVibrate(0x3FF);
-    delay(150);
-    setVibrate(0);
     delay(75);
+    setVibrate(0);
+    delay(150);
 }
 
 /*
@@ -343,9 +344,10 @@ void    goToSleep(void) {
 
     resetTimerMS();
     while ((getTimerMS() < MUTE_TIMER)) {
-        if (!buttonPressed(false) && longPress) {
+        if (buttonPressed(false) && longPress) {
             click();
             click();
+            setOrangeLED(QUAT_PWM);
             break;
         }
         delay(20);
@@ -363,9 +365,10 @@ void    goToSleep(void) {
     setOrangeLED(0);
             
     // wait for button release
-    while(leftPressed()) {
+    while(buttonPressed(false)) {
         delay(5);
     }
+    clearPresses();
 
     setOrangeLED(0);
     startTriggers();
@@ -377,10 +380,10 @@ void    flashRev() {
     
     // Blink the Rev number
     for (int r=0; r < PUBLIC_REV; r++) {
-        setGreenLED(HALF_PWM);  // Green
+        setOrangeLED(HALF_PWM);  // Green
         
         delay(300);
-        setGreenLED(0);
+        setOrangeLED(0);
         delay(400);
     }
 
@@ -441,6 +444,7 @@ void resetTimerMS()
     timerMS  =  2000UL;  // Must be longer than Long press
     modeTime = timerMS;
     edgeTime = timerMS ;
+    tickleHoldoff = 0;
 }
 
 void resetSleepMS()
